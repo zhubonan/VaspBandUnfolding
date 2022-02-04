@@ -74,6 +74,7 @@ structure. For more information, please refer to the following article and the
     * numpy
     * scipy
     * matplotlib
+    * monty
 
 - Using Pip
 
