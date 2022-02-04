@@ -4,6 +4,7 @@
 ############################################################
 import numpy as np
 import multiprocessing
+from monty.json import MSONable
 from vaspwfc import vaspwfc
 
 ############################################################
@@ -27,6 +28,122 @@ def find_K_from_k(k, M):
     KG = Kc - np.round(Kc)
 
     return KG, G
+
+
+def rotate_kpt(k, latt, rec, opt):
+    """Apply rotation to a kpoint"""
+    rot = k @ rec @ opt.T @ latt
+    return rot - np.rint(rot)
+
+
+def expand_K_by_symmetry(k, rec_pc, opts_pc, opts_sc):
+    """
+    Expend the sampling of the PC kpoints due to symmetry breaking of the SC
+    """
+    k = np.asarray(k)
+    latt_pc = np.linalg.inv(rec_pc)
+
+    # Find distinct images of the kpoints in the PC
+    pc_distinct = [k]
+    for opt in opts_pc:
+        k_equiv = rotate_kpt(k, latt_pc, rec_pc, opt)
+        found = False
+        for k_ in pc_distinct:
+            if np.allclose(k_equiv, k_):
+                found = True
+        if not found:
+            pc_distinct.append(k_equiv)
+    weights = np.ones(len(pc_distinct))
+    # Now each for uniqueness in the supercell
+    for i, k in enumerate(pc_distinct):
+        if weights[i] == 0:
+            continue
+
+        for opt in opts_sc:
+            k_equiv = rotate_kpt(k, latt_pc, rec_pc, opt)
+            for j, k_ in enumerate(pc_distinct):
+                # Skip if it is the same point, or the other point has been taken
+                if i == j or weights[j] == 0:
+                    continue
+                if np.allclose(k_equiv, k_):
+                    weights[i] += weights[j]
+                    weights[j] = 0
+
+    out_points = []
+    out_weights = []
+    for i, k in enumerate(pc_distinct):
+        if weights[i] != 0:
+            out_points.append(k)
+            out_weights.append(weights[i])
+    assert sum(out_weights) == len(pc_distinct)
+    out_weights = np.array(out_weights) / sum(out_weights)
+    return out_points, out_weights
+
+
+class UnfoldKSet(MSONable):
+    """Stores the information of the kpoints in the primitive cell, and what they unfolds to in the supercell"""
+    
+    def __init__(self, M, kpts_pc, pc_latt, pc_opts, sc_opts, **kwargs):
+        """
+        Args:
+            kpts_pc: A list of kpoints in the PC
+            pc_lattice: A 3x3 matrix of row lattice vectors of the primitive cell
+            pc_opts: Symmetry operations of the primitive cell
+            sc_opts: Symmetry operations of the supercell
+        """
+        self.kpts_pc = kpts_pc
+        self.pc_latt = pc_latt
+        self.pc_opts = pc_opts
+        self.sc_opts = sc_opts
+        self.M = M
+        self.expansion_results = None
+        self.reduced_sckpts = None
+        self.reduced_sckpts_map = None
+
+    
+    def expand_pc_kpoints(self):
+        """Comptue the pc kpoints to be unfolded into"""
+        expended_k = []
+        expended_weights = []
+        for kpt in self.kpts_pc:
+            kset, weights = expand_K_by_symmetry(kpt, np.linalg.inv(self.pc_latt), self.pc_opts, self.sc_opts)
+            expended_k.append(kset)
+            expended_weights.append(weights)
+        self.expansion_results = {'kpoints': expended_k, 'weights': expended_weights}
+
+
+    def generate_sc_kpoints(self):
+        """Generate the supercell kpoints to be calculated"""
+
+        assert bool(self.expansion_results)
+        expended_sc = []
+        all_sc = []
+        for kset in self.expansion_results['kpoints']:
+            this_k = []
+            for kpt in kset:
+                sc_k, _ = find_K_from_k(kpt, self.M)
+                this_k.append(sc_k)
+            expended_sc.append(this_k)
+            all_sc.extend(this_k)
+        # We now have bunch of supercell kpoints for each set of expanded kpoints
+        # Try to find duplicated SC kpoints
+        reduced_sckpts, sc_kpts_map = removeDuplicateKpoints(all_sc, return_map=True)
+        print(all_sc)
+        sc_kpts_map = list(sc_kpts_map)
+
+        # Mapping between the pckpts to the redcued sckpts
+        reduced_sc_map = []
+        for sc_set in expended_sc:
+            map_indx = []
+            for _ in sc_set:
+                map_indx.append(sc_kpts_map.pop(0))
+            reduced_sc_map.append(map_indx)
+
+        self.reduced_sckpts = reduced_sckpts
+        # A nested list that stores the indices of the sc kpts in the reduced_sckpts list
+        self.reduced_sckpts_map = reduced_sc_map
+        return reduced_sckpts, reduced_sc_map
+
 
 
 def LorentzSmearing(x, x0, sigma=0.02):
