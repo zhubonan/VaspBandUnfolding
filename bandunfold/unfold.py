@@ -8,12 +8,18 @@ import multiprocessing
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
+import spglib
 from monty.json import MSONable
 
-from .pyvaspwfc import vaspwfc
+from .pyvaspwfc.vaspwfc import vaspwfc
 
 ############################################################
 
+def get_symmetry_dataset(atoms, symprec=1e-5):
+    """Get the symmetry dataset using spglib"""
+    return spglib.get_symmetry_dataset((atoms.get_cell(), atoms.get_scaled_positions(),
+                                atoms.get_atomic_numbers()),
+                                symprec=symprec)
 
 def find_K_from_k(k, M):
     '''
@@ -36,10 +42,12 @@ def find_K_from_k(k, M):
 
 
 def rotate_kpt(k, latt, rec, opt):
-    """Apply rotation to a kpoint"""
-    #rot = k @ rec @ opt.T @ latt
+    """
+    Apply rotation to a kpoint based on the rotations of the crystals (in the real space)
+    """
     rot =  k @ opt
     return rot - np.rint(rot)
+
 
 def expand_K_by_symmetry(k, rec_pc, opts_pc, opts_sc):
     """
