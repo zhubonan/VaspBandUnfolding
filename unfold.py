@@ -2,9 +2,14 @@
 # -*- coding: utf-8 -*-
 
 ############################################################
-import numpy as np
+import os
 import multiprocessing
+
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib as mpl
 from monty.json import MSONable
+
 from vaspwfc import vaspwfc
 
 ############################################################
@@ -282,10 +287,6 @@ def EBS_scatter(kpts, cell, spectral_weight,
         spectral_weight: self-explanatory
     '''
 
-    import matplotlib as mpl
-    mpl.use('agg')
-    import matplotlib.pyplot as plt
-
     mpl.rcParams['axes.unicode_minus'] = False
 
     nspin = spectral_weight.shape[0]
@@ -370,9 +371,7 @@ def EBS_cmaps(kpts, cell, E0, spectral_function,
         spectral_weight: self-explanatory
     '''
 
-    import matplotlib as mpl
     mpl.use('agg')
-    import matplotlib.pyplot as plt
 
     mpl.rcParams['axes.unicode_minus'] = False
 
@@ -414,7 +413,8 @@ def EBS_cmaps(kpts, cell, E0, spectral_function,
                 ax.axvline(x=kb, lw=0.5, color='k', ls=':', alpha=0.8)
 
             if kpath_label:
-                ax.set_xticks(np.r_[kdist[::nseg], kdist[-1]])
+                tick_pos = list(kdist[::nseg])
+                ax.set_xticks(tick_pos)
                 kname = [x.upper() for x in kpath_label]
                 for ii in range(len(kname)):
                     if kname[ii] == 'G':
@@ -758,7 +758,6 @@ if __name__ == '__main__':
     reducedK = removeDuplicateKpoints(K_in_sup)
     save2VaspKPOINTS(reducedK)
 
-    import os
     # from ase.io import read, write
     #
     # pos = read('POSCAR.p', format='vasp')
