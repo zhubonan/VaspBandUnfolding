@@ -5,7 +5,7 @@
 import os
 import numpy as np
 import multiprocessing
-from vaspwfc import vaspwfc
+from .vaspwfc import vaspwfc
 
 ############################################################
 

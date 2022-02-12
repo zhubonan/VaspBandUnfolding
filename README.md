@@ -1,3 +1,15 @@
+# Code for unfolding bands
+
+This package is intended for unfolding kpoints, it is based on [PyVaspwfc](https://github.com/QijingZheng/VaspBandUnfolding) and contains the code of the latter.
+
+NOTE: This package is MIT license, while the original PyVaspwfc code did not specific a license.
+
+Changes made so far:
+
+1. Adapt a more pythonic package structure - no longer putting modules at top levle
+2. Include symmetry averaging of the kpoints to take account of symmetry broken supercell, which was ignored in the original `PyVaspwfc` code.
+3. The origin `PyVaspwfc` code is included as an internal sub package 
+
 # PyVaspwfc
 
 This is a python class for dealing with `VASP` pseudo-wavefunction file `WAVECAR`.

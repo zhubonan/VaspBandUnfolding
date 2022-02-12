@@ -2,8 +2,8 @@
 
 import re
 import numpy as np
-from vasp_constant import *
-from sph_harm import sph_r, sph_c
+from .vasp_constant import *
+from .sph_harm import sph_r, sph_c
 
 
 def fftchk1(n):
