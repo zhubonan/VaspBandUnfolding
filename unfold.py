@@ -32,9 +32,9 @@ def find_K_from_k(k, M):
 
 def rotate_kpt(k, latt, rec, opt):
     """Apply rotation to a kpoint"""
-    rot = k @ rec @ opt.T @ latt
+    #rot = k @ rec @ opt.T @ latt
+    rot =  k @ opt
     return rot - np.rint(rot)
-
 
 def expand_K_by_symmetry(k, rec_pc, opts_pc, opts_sc):
     """
@@ -100,6 +100,7 @@ class UnfoldKSet(MSONable):
         self.reduced_sckpts = None
         self.reduced_sckpts_map = None
 
+        self.expand_pc_kpoints()
     
     def expand_pc_kpoints(self):
         """Comptue the pc kpoints to be unfolded into"""
@@ -111,9 +112,37 @@ class UnfoldKSet(MSONable):
             expended_weights.append(weights)
         self.expansion_results = {'kpoints': expended_k, 'weights': expended_weights}
 
+    def __repr__(self) -> str:
+        return f"<UnfoldKSet with {self.nkpts_expand}/{self.nkpts_orig} kpoints based on {self.nsymm_expand}/{self.nsymm_orig} symm ops"
+
+    @property
+    def nsymm_orig(self):
+        """Number of symmetry operation in the original cell"""
+        return self.pc_opts.shape[0]
+
+    @property
+    def nsymm_expand(self):
+        """Number of symmetry operation in the original cell"""
+        return self.sc_opts.shape[0]
+
+    @property
+    def nkpts_orig(self):
+        """Total number of unexpanded kpoints"""
+        return len(self.expansion_results['kpoints'])
+
+    @property
+    def nkpts_expand(self):
+        """Total number of expanded kpoints"""
+        return sum(map(len, self.expansion_results['kpoints']))
 
     def generate_sc_kpoints(self):
-        """Generate the supercell kpoints to be calculated"""
+        """
+        Generate the supercell kpoints to be calculated
+
+        Returns:
+            A flat list of supercell kpoints in fractional coordinates
+            An indexing nested list to map expanded kpoints set to the supercell kpoints generated 
+        """
 
         assert bool(self.expansion_results)
         expended_sc = []
@@ -128,7 +157,6 @@ class UnfoldKSet(MSONable):
         # We now have bunch of supercell kpoints for each set of expanded kpoints
         # Try to find duplicated SC kpoints
         reduced_sckpts, sc_kpts_map = removeDuplicateKpoints(all_sc, return_map=True)
-        print(all_sc)
         sc_kpts_map = list(sc_kpts_map)
 
         # Mapping between the pckpts to the redcued sckpts
