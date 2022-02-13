@@ -49,7 +49,7 @@ def rotate_kpt(k, latt, rec, opt):
     return rot - np.rint(rot)
 
 
-def expand_K_by_symmetry(k, rec_pc, opts_pc, opts_sc):
+def expand_K_by_symmetry(k, rec_pc, opts_pc, opts_sc, time_reversal=True):
     """
     Expend the sampling of the PC kpoints due to symmetry breaking of the SC
     """
@@ -60,9 +60,12 @@ def expand_K_by_symmetry(k, rec_pc, opts_pc, opts_sc):
     pc_distinct = [k]
     for opt in opts_pc:
         k_equiv = rotate_kpt(k, latt_pc, rec_pc, opt)
+        k_equiv_neg = k_equiv * -1
         found = False
         for k_ in pc_distinct:
             if np.allclose(k_equiv, k_):
+                found = True
+            if time_reversal and np.allclose(k_equiv_neg, k_):
                 found = True
         if not found:
             pc_distinct.append(k_equiv)
@@ -74,11 +77,12 @@ def expand_K_by_symmetry(k, rec_pc, opts_pc, opts_sc):
 
         for opt in opts_sc:
             k_equiv = rotate_kpt(k, latt_pc, rec_pc, opt)
+            k_equiv_neg = k_equiv * -1
             for j, k_ in enumerate(pc_distinct):
                 # Skip if it is the same point, or the other point has been taken
                 if i == j or weights[j] == 0:
                     continue
-                if np.allclose(k_equiv, k_):
+                if np.allclose(k_equiv, k_) or (time_reversal and np.allclose(k_equiv_neg, k_)):
                     weights[i] += weights[j]
                     weights[j] = 0
 
@@ -96,7 +100,7 @@ def expand_K_by_symmetry(k, rec_pc, opts_pc, opts_sc):
 class UnfoldKSet(MSONable):
     """Stores the information of the kpoints in the primitive cell, and what they unfolds to in the supercell"""
     
-    def __init__(self, M, kpts_pc, pc_latt, pc_opts, sc_opts, **kwargs):
+    def __init__(self, M, kpts_pc, pc_latt, pc_opts, sc_opts, time_reversal=True):
         """
         Args:
             kpts_pc: A list of kpoints in the PC
@@ -112,6 +116,7 @@ class UnfoldKSet(MSONable):
         self.expansion_results = None
         self.reduced_sckpts = None
         self.reduced_sckpts_map = None
+        self.time_reversal = time_reversal
 
         self.expand_pc_kpoints()
     
@@ -120,7 +125,7 @@ class UnfoldKSet(MSONable):
         expended_k = []
         expended_weights = []
         for kpt in self.kpts_pc:
-            kset, weights = expand_K_by_symmetry(kpt, np.linalg.inv(self.pc_latt), self.pc_opts, self.sc_opts)
+            kset, weights = expand_K_by_symmetry(kpt, np.linalg.inv(self.pc_latt), self.pc_opts, self.sc_opts, time_reversal=self.time_reversal)
             expended_k.append(kset)
             expended_weights.append(weights)
         self.expansion_results = {'kpoints': expended_k, 'weights': expended_weights}
