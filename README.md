@@ -2,7 +2,7 @@
 
 This package is intended for unfolding kpoints, it is based on [PyVaspwfc](https://github.com/QijingZheng/VaspBandUnfolding) and contains the code of the latter.
 
-NOTE: This package is MIT license, while the original PyVaspwfc code did not specific a license.
+NOTE: This package is under a MIT license, while the original PyVaspwfc code does not specific a license.
 
 Changes made so far:
 
@@ -15,7 +15,9 @@ TODO
 
 - [ ] Add serialization interface
 - [ ] Add function to read and save spectral weights - so WAVECAR can be deleted once calculation is done
+- [ ] Allow `UnfoldKSet` to be serialized to/loaded from the disk 
 - [ ] Make a CLI or phonopy-like interface
+- [ ] Clean up, no need to include all of the `PyVaspwfc`, only the relavant WAVECAR reading the spectral weight calculation parts are needed.
 
 ## Effect of symmetry breaking and sampling additional kpoints
 
@@ -32,10 +34,11 @@ Comparing unfolds of the deformed 2x2x2 supercell, with and without extra kpoint
 
 ![Deformed with and without additional paths](./examples/unfold-symmetry/Si_super_avg_SF_deformed_compared_resized.png)
 
-Note that a extra branch along $\Gamma - L$ emerges, which is absent if no additional sampling is performed.
+Note that an extra branch along `\Gamma` to  `L` emerges, which is absent if no additional kpoint is performed.
 
 While extra kpoints are needed in the symmetry-broken supercell, the remaining symmetry can be used to reduced the number of actual supercell kpoint needed.
 The figure below is a test without any reduction - there were 403 kpoints sampled, while the one used the in comparison above has 135 kpoints, yet it gives identical outputs.
+
 ![Deformed with sampling all routes](./examples/unfold-symmetry/Si_super_avg_SF_deformed_avg_nosym_resized.png)
 
 
