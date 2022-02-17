@@ -10,6 +10,14 @@ Changes made so far:
 2. Include symmetry averaging of the kpoints to take account of symmetry broken supercell, which was ignored in the original `PyVaspwfc` code.
 3. The origin `PyVaspwfc` code is included as an internal sub package 
 
+
+TODO
+
+- [ ] Add serialization interface
+- [ ] Add function to read and save spectral weights - so WAVECAR can be deleted once calculation is done
+- [ ] Make a CLI or phonopy-like interface
+
+
 # PyVaspwfc
 
 This is a python class for dealing with `VASP` pseudo-wavefunction file `WAVECAR`.
