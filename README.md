@@ -17,6 +17,27 @@ TODO
 - [ ] Add function to read and save spectral weights - so WAVECAR can be deleted once calculation is done
 - [ ] Make a CLI or phonopy-like interface
 
+## Effect of symmetry breaking and sampling additional kpoints
+
+Test case - Si 2x2x2 cell.
+The first atom is displaced by 0.2 A in the `[111]` direction.
+This reduce the number of symmetry operations from 48 to 6.
+Hence, additional kpoints need to be sampled for the pathway generated assuming a perfect primitive cell with the original symmetry.
+
+Unfolded band structure of the perfect 2x2x2 supercell:
+
+![perfect cell](./examples/unfold-symmetry/Si_super_avg_SF_resized.png)
+
+Comparing unfolds of the deformed 2x2x2 supercell, with and without extra kpoints. 
+
+![Deformed with and without additional paths](./examples/unfold-symmetry/Si_super_avg_SF_deformed_compared_resized.png)
+
+Note that a extra branch along $\Gamma - L$ emerges, which is absent if no additional sampling is performed.
+
+While extra kpoints are needed in the symmetry-broken supercell, the remaining symmetry can be used to reduced the number of actual supercell kpoint needed.
+The figure below is a test without any reduction - there were 403 kpoints sampled, while the one used the in comparison above has 135 kpoints, yet it gives identical outputs.
+![Deformed with sampling all routes](./examples/unfold-symmetry/Si_super_avg_SF_deformed_avg_nosym_resized.png)
+
 
 # PyVaspwfc
 
