@@ -205,19 +205,22 @@ class UnfoldKSet(MSONable):
         else:
             write_kpoints(self.kpts_pc, file, comment='primitive cell kpoints')
 
-    def _get_spectral_weights(self, wavecar, npoints=2000, sigma=0.1, gamma=False, lsorbit=False, gamma_half='x', also_spectral_function=False):
+    def _get_spectral_weights(self, wavecar, npoints=2000, sigma=0.1, gamma=False, lsorbit=False, gamma_half='x', also_spectral_function=False, symm_average=True):
         """
         Fetch spectral weights from a wavecar and compute spectral function is requested
         """
         unfold_obj = Unfold(self.M, wavecar, gamma=gamma, lsorbit=lsorbit, gamma_half=gamma_half)
 
         sws = []
-        for kset, weights in zip(self.expansion_results['kpoints'], self.expansion_results['weights']):
-            sw = unfold_obj.spectral_weight(kset)
-            for ik, w in enumerate(weights):
-                sw[:, ik, :, :] *= w
-            sws.append(sw.sum(axis=1))
-        sws = np.stack(sws, axis=1)
+        if symm_average is True:
+            for kset, weights in zip(self.expansion_results['kpoints'], self.expansion_results['weights']):
+                sw = unfold_obj.spectral_weight(kset)
+                for ik, w in enumerate(weights):
+                    sw[:, ik, :, :] *= w
+                sws.append(sw.sum(axis=1))
+            sws = np.stack(sws, axis=1)
+        else:
+            sws = unfold_obj.spectral_weight(self.kpts_pc)
         self.spectral_weights = sws
         self.calculated_quantities['spectral_weights'] = sws
         if also_spectral_function:
@@ -228,14 +231,14 @@ class UnfoldKSet(MSONable):
             return sws, e0, spectral_function
         return sws
 
-    def get_spectral_function(self, wavecar, npoints=2000, sigma=0.1, gamma=False, lsorbit=False, gamma_half='x'):
+    def get_spectral_function(self, wavecar, npoints=2000, sigma=0.1, gamma=False, lsorbit=False, gamma_half='x', symm_average=True):
         """Get the spectral function"""
-        _, e0, spectral_function = self._get_spectral_weights(wavecar, npoints=npoints, sigma=sigma, gamma=gamma, lsorbit=lsorbit, gamma_half=gamma_half, also_spectral_function=True)
+        _, e0, spectral_function = self._get_spectral_weights(wavecar, npoints=npoints, sigma=sigma, gamma=gamma, lsorbit=lsorbit, gamma_half=gamma_half, also_spectral_function=True, symm_average=symm_average)
         return e0, spectral_function
 
-    def get_spectral_function(self, wavecar, gamma=False, lsorbit=False, gamma_half=gamma_half):
+    def get_spectral_weights(self, wavecar, gamma=False, lsorbit=False, gamma_half='x', symm_average=True):
         """Get the spectral function"""
-        return self._get_spectral_weights(wavecar, gamma=gamma, lsorbit=lsorbit, gamma_half=gamma_half, also_spectral_function=False)
+        return self._get_spectral_weights(wavecar, gamma=gamma, lsorbit=lsorbit, gamma_half=gamma_half, also_spectral_function=False, symm_average=symm_average)
 
     def save_to_file(self):
         """Save into a file"""
@@ -424,10 +427,11 @@ def EBS_scatter(kpts, cell, spectral_weight,
 def EBS_cmaps(kpts, cell, E0, spectral_function,
               eref=0.0, nseg=None,
               kpath_label=[],
-              save='ebs_c.png',
+              save=None,
               figsize=(3.0, 4.0),
               ylim=(-3, 3), show=True,
               contour_plot=False,
+              ax=None,
               cmap='jet'):
     '''
     plot the effective band structure with colormaps.  The plotting function
@@ -439,9 +443,9 @@ def EBS_cmaps(kpts, cell, E0, spectral_function,
         spectral_weight: self-explanatory
     '''
 
-    mpl.use('agg')
+#    mpl.use('agg')
 
-    mpl.rcParams['axes.unicode_minus'] = False
+#    mpl.rcParams['axes.unicode_minus'] = False
 
     nspin = spectral_function.shape[0]
     kpt_c = np.dot(kpts, np.linalg.inv(cell).T)
@@ -454,13 +458,20 @@ def EBS_cmaps(kpts, cell, E0, spectral_function,
     xmin, xmax = kdist.min(), kdist.max()
     # ymin, ymax = E0.min() - eref, E0.max() - eref
 
-    fig = plt.figure()
-    if nspin == 1:
-        axes = [plt.subplot(111)]
-        fig.set_size_inches(figsize)
+    if ax is None:
+        fig = plt.figure()
+        if nspin == 1:
+            axes = [plt.subplot(111)]
+            fig.set_size_inches(figsize)
+        else:
+            axes = [plt.subplot(121), plt.subplot(122)]
+            fig.set_size_inches((figsize[0] * 2, figsize[1]))
     else:
-        axes = [plt.subplot(121), plt.subplot(122)]
-        fig.set_size_inches((figsize[0] * 2, figsize[1]))
+        if not isinstance(ax, list):
+            axes = [ax]
+        else:
+            axes=ax
+        fig = axes[0].figure
 
     # ax.imshow(spectral_function, extent=(xmin, xmax, ymin, ymax),
     #           origin='lower', aspect='auto', cmap=cmap)
@@ -487,14 +498,17 @@ def EBS_cmaps(kpts, cell, E0, spectral_function,
                 for ii in range(len(kname)):
                     if kname[ii] == 'G':
                         kname[ii] = r'$\mathrm{\mathsf{\Gamma}}$'
+                    elif kname[ii].startswith('\\'):
+                        kname[ii] = f'$\\mathrm{{\\mathsf{{\\{kname[ii]}}}}}$'
                     else:
                         kname[ii] = r'$\mathrm{\mathsf{%s}}$' % kname[ii]
                 ax.set_xticklabels(kname)
 
-    plt.tight_layout(pad=0.2)
-    plt.savefig(save, dpi=360)
+    fig.tight_layout(pad=0.2)
+    if save:
+        fig.savefig(save, dpi=360)
     if show:
-        plt.show()
+        fig.show()
 ############################################################
 
 
