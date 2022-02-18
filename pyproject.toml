@@ -10,4 +10,7 @@ license = {file = "LICENSE"}
 classifiers = ["License :: OSI Approved :: MIT License"]
 dynamic = ["version", "description"]
 
-dependencies = ["scipy", "numpy", "matplotlib", "ase", "spglib"]
+dependencies = ["scipy", "numpy", "matplotlib", "ase", "spglib", "click"]
+
+[project.scripts]
+easyunfold = "bandunfold.cli:easyunfold"

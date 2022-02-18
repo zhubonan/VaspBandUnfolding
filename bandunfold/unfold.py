@@ -6,6 +6,8 @@ The main module for unfolding workflow and algorithm
 # pylint: disable=invalid-name,protected-access
 
 ############################################################
+from pathlib import Path
+
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
@@ -102,7 +104,16 @@ def expand_K_by_symmetry(kpt, opts_pc, opts_sc, time_reversal=True):
 class UnfoldKSet(MSONable):
     """Stores the information of the kpoints in the primitive cell, and what they unfolds to in the supercell"""
 
-    def __init__(self, M, kpts_pc, pc_latt, pc_opts, sc_opts, time_reversal=True, expansion_results=None, calculated_quantities=None):
+    def __init__(self,
+                 M,
+                 kpts_pc,
+                 pc_latt,
+                 pc_opts,
+                 sc_opts,
+                 time_reversal=True,
+                 expansion_results=None,
+                 calculated_quantities=None,
+                 kpoint_labels=None):
         """
         Args:
             kpts_pc: A list of kpoints in the PC
@@ -119,11 +130,22 @@ class UnfoldKSet(MSONable):
         self.expansion_results = expansion_results
         self.time_reversal = time_reversal
         self.calculated_quantities = {} if not calculated_quantities else calculated_quantities
+        self.kpoint_labels = kpoint_labels
         # Transient properties
         self.reduced_sckpts = None
         self.reduced_sckpts_map = None
         if self.expansion_results is None:
             self.expand_pc_kpoints()
+
+    @property
+    def is_calculated(self):
+        """Show the status of the work"""
+        return bool(self.calculated_quantities)
+
+    @property
+    def has_averaged_spectral_weights(self):
+        """Return True if the spectral weights stored is averaged"""
+        return self.calculated_quantities.get('spectral_weights_is_averaged', False)
 
     @classmethod
     def from_atoms(cls, M, kpts_pc, pc, sc, time_reversal=True):
@@ -289,7 +311,10 @@ class UnfoldKSet(MSONable):
     def as_dict(self):
         """To a dictionary representation"""
         output = {'@module': self.__class__.__module__, '@class': self.__class__.__name__, '@version': __version__}
-        for key in ['M', 'kpts_pc', 'pc_latt', 'pc_opts', 'sc_opts', 'expansion_results', 'time_reversal', 'calculated_quantities']:
+        for key in [
+                'M', 'kpts_pc', 'pc_latt', 'pc_opts', 'sc_opts', 'expansion_results', 'time_reversal', 'calculated_quantities',
+                'kpoint_labels'
+        ]:
             output[key] = getattr(self, key)
         return output
 
@@ -346,6 +371,33 @@ def write_kpoints(kpoints: np.ndarray, outpath='KPOINTS', comment=''):
         for ik in range(nkpts):
             line = '  %12.8f %12.8f %12.8f 1.0\n' % (kpoints[ik, 0], kpoints[ik, 1], kpoints[ik, 2])
             vaspkpt.write(line)
+
+
+def read_kpoints(path='KPOINTS'):
+    """
+    Read kpoints from a KPOINTS file containing reciprocal space coordinates (fractional)
+
+    Returns the kpoints, the comment and the labels at each kpoint
+    """
+    content = Path(path).read_text().split('\n')
+    comment = content[0]
+    nkpts = int(content[1])
+    assert content[2].lower().startswith('rec'), 'Only Reciprocal space KPOINT file is supported'
+    kpts = []
+    labels = []
+    ik = 0
+    for line in content[3:]:
+        tokens = line.split()
+        this_kpt = [float(value) for value in tokens[:3]]
+
+        if len(tokens) >= 5:
+            labels.append([ik, tokens[4]])
+
+        kpts.append(this_kpt)
+        ik += 1
+        if ik == nkpts:
+            break
+    return kpts, comment, labels
 
 
 def make_kpath(kbound, nseg=40):
@@ -452,7 +504,8 @@ def EBS_cmaps(kpts,
               spectral_function,
               eref=0.0,
               nseg=None,
-              kpath_label=[],
+              kpath_label=None,
+              explicit_labels=None,
               save=None,
               figsize=(3.0, 4.0),
               ylim=(-3, 3),
@@ -473,11 +526,12 @@ def EBS_cmaps(kpts,
     #    mpl.use('agg')
 
     #    mpl.rcParams['axes.unicode_minus'] = False
-
+    kpath_label = [] if not kpath_label else kpath_label
     nspin = spectral_function.shape[0]
     kpt_c = np.dot(kpts, np.linalg.inv(cell).T)
-    kdist = np.r_[0, np.cumsum(np.linalg.norm(np.diff(kpt_c, axis=0), axis=1))]
+    kdist = np.r_[0., np.cumsum(np.linalg.norm(np.diff(kpt_c, axis=0), axis=1))]
     xmin, xmax = kdist.min(), kdist.max()
+
     # ymin, ymax = E0.min() - eref, E0.max() - eref
 
     if ax is None:
@@ -518,19 +572,40 @@ def EBS_cmaps(kpts,
                 ax.set_xticks(tick_pos)
                 kname = [x.upper() for x in kpath_label]
                 for ii, _ in enumerate(kname):
-                    if kname[ii] == 'G':
-                        kname[ii] = r'$\mathrm{\mathsf{\Gamma}}$'
-                    elif kname[ii].startswith('\\'):
-                        kname[ii] = f'$\\mathrm{{\\mathsf{{\\{kname[ii]}}}}}$'
-                    else:
-                        kname[ii] = r'$\mathrm{\mathsf{%s}}$' % kname[ii]
+                    kname[ii] = clean_latex_string(kname[ii])
                 ax.set_xticklabels(kname)
+        elif explicit_labels:
+            tick_locs = []
+            tick_labels = []
+            for index, label in explicit_labels:
+                ax.axvline(x=kdist[index], lw=0.5, color='k', ls=':', alpha=0.8)
+                tick_locs.append(kdist[index])
+                tick_labels.append(label)
+            ticks = []
+            tick_labels = []
+            for xloc, label in zip(kdist, explicit_labels):
+                if label:
+                    ticks.append(xloc)
+                    tick_labels.append(clean_latex_string(label))
+            ax.set_xticks(tick_locs)
+            ax.set_xticklabels(tick_labels)
 
     fig.tight_layout(pad=0.2)
     if save:
         fig.savefig(save, dpi=360)
     if show:
         fig.show()
+    return fig
+
+
+def clean_latex_string(label):
+    if label == 'G':
+        label = r'$\mathrm{\mathsf{\Gamma}}$'
+    elif label.startswith('\\'):  ## This is a latex formatted label already
+        label = f'$\\mathrm{{\\mathsf{{\\{label}}}}}$'
+    else:
+        label = r'$\mathrm{\mathsf{%s}}$' % label
+    return label
 
 
 def spectral_function_from_weights(spectral_weights, nedos=4000, sigma=0.02):
