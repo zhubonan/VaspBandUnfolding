@@ -8,14 +8,15 @@ from ase.build import make_supercell
 import pytest
 import bandunfold.unfold as unfold
 
+
 @pytest.fixture
 def si_atoms(datapath):
-    return read(datapath("Si/POSCAR"))
+    return read(datapath('Si/POSCAR'))
 
 
 @pytest.fixture
 def si222_atoms(si_atoms):
-    return si_atoms.repeat((2,2,2))
+    return si_atoms.repeat((2, 2, 2))
 
 
 @pytest.fixture
@@ -24,6 +25,7 @@ def kpath_and_labels():
     labels = ['G', 'L', 'W', 'X']
     return path, labels
 
+
 @pytest.fixture
 def explicit_kpoints(kpath_and_labels):
     """Test generating kpoints"""
@@ -31,6 +33,7 @@ def explicit_kpoints(kpath_and_labels):
     kpts = unfold.make_kpath(klist, 20)
     assert len(kpts) == 61
     return kpts
+
 
 @pytest.fixture
 def explicit_kpoints_minimal(kpath_and_labels):
@@ -46,7 +49,7 @@ def silicon_unfold(explicit_kpoints_minimal, si_atoms, si222_atoms):
     """
     Return an object for unfolding silicon
     """
-    return unfold.UnfoldKSet.from_atoms(np.diag([2,2,2]), explicit_kpoints_minimal, si_atoms, si222_atoms)
+    return unfold.UnfoldKSet.from_atoms(np.diag([2, 2, 2]), explicit_kpoints_minimal, si_atoms, si222_atoms)
 
 
 def test_unfold_expansion(si_atoms, si222_atoms, explicit_kpoints):
@@ -57,7 +60,7 @@ def test_unfold_expansion(si_atoms, si222_atoms, explicit_kpoints):
     si222_atoms[0].position += np.array([0.1, 0.1, 0.1])
     rots_sc = unfold.get_symmetry_dataset(si222_atoms)['rotations']
 
-    foldset = unfold.UnfoldKSet(np.diag((2,2,2)), explicit_kpoints, si222_atoms.cell, rots_pc, rots_sc)
+    foldset = unfold.UnfoldKSet(np.diag((2, 2, 2)), explicit_kpoints, si222_atoms.cell, rots_pc, rots_sc)
     assert rots_pc.shape[0] == 48
     assert rots_sc.shape[0] == 6
     assert foldset.nkpts_orig == len(explicit_kpoints)
@@ -93,9 +96,8 @@ def test_serialization(silicon_unfold, tmp_path):
     new_obj = silicon_unfold.from_dict(silicon_unfold.as_dict())
 
     # Test writing out
-    (tmp_path / "out.json").write_text(silicon_unfold.to_json())
+    (tmp_path / 'out.json').write_text(silicon_unfold.to_json())
 
-    new_obj = loadfn(tmp_path / "out.json")
+    new_obj = loadfn(tmp_path / 'out.json')
     np.testing.assert_allclose(new_obj.M, silicon_unfold.M)
     assert 'kpoints' in new_obj.expansion_results
-

@@ -1,0 +1,44 @@
+exclude: '^(doc)|(cookiecutters)|(aiida_vasp/test_data)'
+repos:
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v2.5.0
+  hooks:
+  - id: trailing-whitespace
+    exclude: (bandunfold/pyvaspwfc|example)
+  - id: end-of-file-fixer
+    exclude: (bandunfold/pyvaspwfc|example)
+  - id: check-yaml
+    exclude: (bandunfold/pyvaspwfc|example)
+  - id: check-json
+    exclude: (bandunfold/pyvaspwfc|example)
+  - id: check-added-large-files
+    exclude: (bandunfold/pyvaspwfc|example)
+  - id: double-quote-string-fixer
+    exclude: (bandunfold/pyvaspwfc|example)
+  - id: forbid-new-submodules
+    exclude: (bandunfold/pyvaspwfc|example)
+
+- repo: https://github.com/pre-commit/mirrors-yapf
+  rev: v0.30.0
+  hooks:
+  - id: yapf
+    name: yapf
+    types: [python]
+    args: ['-i']
+    exclude: (bandunfold/pyvaspwfc|example)
+
+
+- repo: local
+  hooks:
+  - id: pylint
+    name: pylint
+    entry: pylint
+    types: [python]
+    language: system
+    exclude: |
+      (?x)(
+      ^tutorials/|
+      ^examples/|
+      ^bandunfold/pyvaspwfc|
+      ^tests
+      )

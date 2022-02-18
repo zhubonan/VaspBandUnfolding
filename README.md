@@ -8,14 +8,14 @@ Changes made so far:
 
 1. Adapt a more pythonic package structure - no longer putting modules at top levle
 2. Include symmetry averaging of the kpoints to take account of symmetry broken supercell, which was ignored in the original `PyVaspwfc` code.
-3. The origin `PyVaspwfc` code is included as an internal sub package 
+3. The origin `PyVaspwfc` code is included as an internal sub package
 
 
 TODO
 
 - [ ] Add serialization interface
 - [ ] Add function to read and save spectral weights - so WAVECAR can be deleted once calculation is done
-- [ ] Allow `UnfoldKSet` to be serialized to/loaded from the disk 
+- [ ] Allow `UnfoldKSet` to be serialized to/loaded from the disk
 - [ ] Make a CLI or phonopy-like interface
 - [ ] Clean up, no need to include all of the `PyVaspwfc`, only the relavant WAVECAR reading the spectral weight calculation parts are needed.
 
@@ -30,7 +30,7 @@ Unfolded band structure of the perfect 2x2x2 supercell:
 
 ![perfect cell](./examples/unfold-symmetry/Si_super_avg_SF_resized.png)
 
-Comparing unfolds of the deformed 2x2x2 supercell, with and without extra kpoints. 
+Comparing unfolds of the deformed 2x2x2 supercell, with and without extra kpoints.
 
 ![Deformed with and without additional paths](./examples/unfold-symmetry/Si_super_avg_SF_deformed_compared_resized.png)
 
@@ -48,7 +48,7 @@ This is a python class for dealing with `VASP` pseudo-wavefunction file `WAVECAR
 It can be used to extract the planewave coefficients of any single Kohn-Sham (KS)
 orbital from the file.  In addition, by padding the planewave coefficients to a
 3D grid and performing 3D Fourier Transform, the pseudo-wavefunction in real
-space can also be obtained and saved to file that can be viewed with `VESTA`. 
+space can also be obtained and saved to file that can be viewed with `VESTA`.
 
 ## Transition dipole moment
 
@@ -62,7 +62,7 @@ IPR is a measure of the localization of Kohn-Sham states. For a particular KS
 state \phi_j, it is defined as
 
 ```latex
-                \sum_n |\phi_j(n)|^4 
+                \sum_n |\phi_j(n)|^4
 IPR(\phi_j) = -------------------------
               |\sum_n |\phi_j(n)|^2||^2
 ```
@@ -129,9 +129,9 @@ structure. For more information, please refer to the following article and the
 # Examples
 
 ## Pseudowavefunction in real space
- 
+
  1. Write a simple script and choose whichever state you like.
- 
+
 ```python
 from vaspwfc import vaspwfc
 
@@ -155,7 +155,7 @@ for ii in range(2):
 
 Below are the real (left) and imaginary (right) part of the selected KS orbital:
 
-![real part](./examples/wfc_r/r_resize.png) | 
+![real part](./examples/wfc_r/r_resize.png) |
 ![imaginary part](./examples/wfc_r/i_resize.png)
 
 2. Or you can also use the script `wfcplot`  in the `scripts` folder
@@ -181,7 +181,7 @@ chi = wfc.elf(kptw=kptw, ngrid=[20, 20, 150])
 save2vesta(chi[0], lreal=True, poscar='POSCAR', prefix='elf')
 ```
 **Remember to rename the output file "elf_r.vasp" as "ELFCAR"!**
-## Band unfolding 
+## Band unfolding
 
 Here, we use MoS2 as an example to illustrate the procedures of band unfolding.
 Below is the band structure of MoS2 using a primitive cell. The calculation was
@@ -192,7 +192,7 @@ performed with `VASP` and the input files can be found in the
 
 1. Create the supercell from the primitive cell, in my case, the supercell is of
    the size 3x3x1, which means that the transformation matrix between supercell
-   and primitive cell is 
+   and primitive cell is
    ```python
     # The tranformation matrix between supercell and primitive cell.
     M = [[3.0, 0.0, 0.0],
@@ -243,7 +243,7 @@ performed with `VASP` and the input files can be found in the
    sw = WaveSuper.spectral_weight(kpath)
    # show the effective band structure with scatter
    EBS_scatter(kpath, cell, sw, nseg=30, eref=-4.01,
-           ylim=(-3, 4), 
+           ylim=(-3, 4),
            factor=5)
 
    from unfold import EBS_cmaps
@@ -256,13 +256,13 @@ performed with `VASP` and the input files can be found in the
 
    The EBS from a 3x3x1 supercell calculation are shown below:
 
-   ![real part](./examples/unfold/sup_3x3x1/ebs_s_resize.png) | 
+   ![real part](./examples/unfold/sup_3x3x1/ebs_s_resize.png) |
    ![imaginary part](./examples/unfold/sup_3x3x1/ebs_c_resize.png)
-   
+
    Another example of EBS from a 3x3x1 supercell calculation, where we introduce a
    `S` vacancy in the structure.
 
-   ![real part](./examples/unfold/sup_3x3x1_defect/ebs_s_resize.png) | 
+   ![real part](./examples/unfold/sup_3x3x1_defect/ebs_s_resize.png) |
    ![imaginary part](./examples/unfold/sup_3x3x1_defect/ebs_c_resize.png)
 
    Yet another band unfolding example from a tetragonal 3x3x1 supercell
@@ -273,14 +273,14 @@ performed with `VASP` and the input files can be found in the
          [3.0, 6.0, 0.0],
          [0.0, 0.0, 1.0]]
    ```
-   ![real part](./examples/unfold/tet_3x3x1/ebs_s_resize.png) | 
+   ![real part](./examples/unfold/tet_3x3x1/ebs_s_resize.png) |
    ![imaginary part](./examples/unfold/tet_3x3x1/ebs_c_resize.png)
 
    Compared to the band structure of the primitive cell, there are some empty
    states at the top of figure. This is due to a too small value of `NBANDS` in
    supercell non-scf calculation, and thus those states are not included.
 
-### Band unfolding wth atomic contributions 
+### Band unfolding wth atomic contributions
 
 After band unfolding, we can also superimpose the atomic contribution of each KS
 states on the spectral weight. Below is the resulting unfolded band structure of
@@ -310,4 +310,4 @@ An example band structure re-ordering is performed in MoS2. The result is shown
 in the following image, where the left/right panel shows the
 un-ordered/re-ordered band structure.
 
-   ![band_reorder](./examples/band_reorder/kband_small.png) | 
+   ![band_reorder](./examples/band_reorder/kband_small.png) |
