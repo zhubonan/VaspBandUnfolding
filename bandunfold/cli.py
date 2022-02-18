@@ -2,8 +2,6 @@
 Commandline interface
 """
 from pathlib import Path
-from re import L
-from selectors import EpollSelector
 from monty.serialization import loadfn
 import numpy as np
 import click
