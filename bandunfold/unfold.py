@@ -11,6 +11,7 @@ import spglib
 from monty.json import MSONable
 
 from .pyvaspwfc.vaspwfc import vaspwfc
+from bandunfold import __version__
 
 ############################################################
 
@@ -100,7 +101,8 @@ def expand_K_by_symmetry(k, opts_pc, opts_sc, time_reversal=True):
 class UnfoldKSet(MSONable):
     """Stores the information of the kpoints in the primitive cell, and what they unfolds to in the supercell"""
     
-    def __init__(self, M, kpts_pc, pc_latt, pc_opts, sc_opts, time_reversal=True):
+    def __init__(self, M, kpts_pc, pc_latt, pc_opts, sc_opts, time_reversal=True, expansion_results=None,
+                calculated_quantities=None):
         """
         Args:
             kpts_pc: A list of kpoints in the PC
@@ -108,19 +110,34 @@ class UnfoldKSet(MSONable):
             pc_opts: Symmetry operations of the primitive cell
             sc_opts: Symmetry operations of the supercell
         """
+        # Basic properties - needed to recreate the object
         self.kpts_pc = kpts_pc
         self.pc_latt = pc_latt
         self.pc_opts = pc_opts
         self.sc_opts = sc_opts
         self.M = M
-        self.expansion_results = None
+        self.expansion_results = expansion_results
+        self.time_reversal = time_reversal
+        self.calculated_quantities = {} if not calculated_quantities else calculated_quantities
+        # Transient properties
         self.reduced_sckpts = None
         self.reduced_sckpts_map = None
-        self.time_reversal = time_reversal
-        self.calculated_quantities = {}
+        if self.expansion_results is None:
+            self.expand_pc_kpoints()
 
-        self.expand_pc_kpoints()
-    
+    @classmethod
+    def from_atoms(cls, M, kpts_pc, pc, sc, time_reversal=True):
+        """Initialise from primitive cell and supercell atoms"""
+        pc_symm_data = get_symmetry_dataset(pc)
+        sc_symm_data = get_symmetry_dataset(sc)
+        return cls(M=M, 
+            kpts_pc=kpts_pc,
+            pc_latt=np.asarray(pc.cell),
+            pc_opts=pc_symm_data['rotations'],
+            sc_opts=sc_symm_data['rotations'],
+            time_reversal=time_reversal,
+            )
+        
     def expand_pc_kpoints(self):
         """Comptue the pc kpoints to be unfolded into"""
         expended_k = []
@@ -193,13 +210,15 @@ class UnfoldKSet(MSONable):
 
     def write_sc_kpoints(self, file):
         """Write the supercell kpoints"""
+        if not self.reduced_sckpts:
+            self.generate_sc_kpoints()
         write_kpoints(self.reduced_sckpts, file, comment='supercell kpoints')
 
     def write_pc_kpoints(self, file, expanded=False):
         """Write the primitive cell kpoints"""
         if expanded:
             all_pc = []
-            for tmp in self.expand_pc_kpoints['kpoints']:
+            for tmp in self.expansion_results['kpoints']:
                 all_pc.extend(tmp)
             write_kpoints(all_pc, file, comment='expanded primitive cell kpoints')
         else:
@@ -209,45 +228,55 @@ class UnfoldKSet(MSONable):
         """
         Fetch spectral weights from a wavecar and compute spectral function is requested
         """
-        unfold_obj = Unfold(self.M, wavecar, gamma=gamma, lsorbit=lsorbit, gamma_half=gamma_half)
-
-        sws = []
-        if symm_average is True:
-            for kset, weights in zip(self.expansion_results['kpoints'], self.expansion_results['weights']):
-                sw = unfold_obj.spectral_weight(kset)
-                for ik, w in enumerate(weights):
-                    sw[:, ik, :, :] *= w
-                sws.append(sw.sum(axis=1))
-            sws = np.stack(sws, axis=1)
+        if wavecar is None:
+            # Use existing results
+            self.spectral_weights = self.calculated_quantities['spectral_weights']
+            if self.calculated_quantities['spectral_weights_is_averaged'] != symm_average:
+                tmp = "not " if not symm_average else ""
+                tmp2 = True if not symm_average else False
+                raise RuntimeError(f'Previously calculated spectral weights was {tmp}averaged. Please set symm_avg to be {tmp2}.')
         else:
-            sws = unfold_obj.spectral_weight(self.kpts_pc)
-        self.spectral_weights = sws
-        self.calculated_quantities['spectral_weights'] = sws
+            unfold_obj = Unfold(self.M, wavecar, gamma=gamma, lsorbit=lsorbit, gamma_half=gamma_half)
+            sws = []
+            if symm_average is True:
+                for kset, weights in zip(self.expansion_results['kpoints'], self.expansion_results['weights']):
+                    sw = unfold_obj.spectral_weight(kset)
+                    for ik, w in enumerate(weights):
+                        sw[:, ik, :, :] *= w
+                    sws.append(sw.sum(axis=1))
+                sws = np.stack(sws, axis=1)
+            else:
+                sws = unfold_obj.spectral_weight(self.kpts_pc)
+            self.spectral_weights = sws
+            self.calculated_quantities['spectral_weights'] = sws
+            self.calculated_quantities['spectral_weights_is_averaged'] = symm_average
+
         if also_spectral_function:
-            unfold_obj.SW = sws
-            e0, spectral_function = unfold_obj.spectral_function(nedos=npoints, sigma=sigma)
+            e0, spectral_function = spectral_function_from_weights(self.spectral_weights, nedos=npoints, sigma=sigma)
             self.calculated_quantities['e0'] = e0
             self.calculated_quantities['spectral_function'] = spectral_function
             return sws, e0, spectral_function
         return sws
 
-    def get_spectral_function(self, wavecar, npoints=2000, sigma=0.1, gamma=False, lsorbit=False, gamma_half='x', symm_average=True):
+    def get_spectral_function(self, wavecar=None, npoints=2000, sigma=0.1, gamma=False, lsorbit=False, gamma_half='x', symm_average=True):
         """Get the spectral function"""
         _, e0, spectral_function = self._get_spectral_weights(wavecar, npoints=npoints, sigma=sigma, gamma=gamma, lsorbit=lsorbit, gamma_half=gamma_half, also_spectral_function=True, symm_average=symm_average)
         return e0, spectral_function
 
-    def get_spectral_weights(self, wavecar, gamma=False, lsorbit=False, gamma_half='x', symm_average=True):
+    def get_spectral_weights(self, wavecar=None, gamma=False, lsorbit=False, gamma_half='x', symm_average=True):
         """Get the spectral function"""
-        return self._get_spectral_weights(wavecar, gamma=gamma, lsorbit=lsorbit, gamma_half=gamma_half, also_spectral_function=False, symm_average=symm_average)
+        return self._get_spectral_weights(wavecar=wavecar, gamma=gamma, lsorbit=lsorbit, gamma_half=gamma_half, also_spectral_function=False, symm_average=symm_average)
 
-    def save_to_file(self):
-        """Save into a file"""
-        raise NotImplementedError
-
-    @classmethod
-    def load_from_file(cls):
-        """Load from a file"""
-        raise NotImplementedError
+    def as_dict(self):
+        """To a dictionary representation"""
+        output = {
+            '@module':self.__class__.__module__,
+            '@class':self.__class__.__name__,
+            '@version': __version__ 
+        }
+        for key in ['M', 'kpts_pc', 'pc_latt', 'pc_opts', 'sc_opts', 'expansion_results', 'time_reversal', 'calculated_quantities']:
+            output[key] = getattr(self, key)
+        return output
 
 
 def LorentzSmearing(x, x0, sigma=0.02):
@@ -491,6 +520,39 @@ def EBS_cmaps(kpts, cell, E0, spectral_function,
         fig.savefig(save, dpi=360)
     if show:
         fig.show()
+
+
+def spectral_function_from_weights(spectral_weights, nedos=4000, sigma=0.02):
+    '''
+    Generate the spectral function
+
+        A(k_i, E) = \sum_m P_{Km}(k_i)\Delta(E - Em)
+
+    Where the \Delta function can be approximated by Lorentzian or Gaussian
+    function.
+    '''
+
+    nk = spectral_weights.shape[1]
+    ns = spectral_weights.shape[0]
+    spectral_function = np.zeros((ns, nedos, nk), dtype=float)
+
+    emin = spectral_weights[:, :, :, 0].min()
+    emax = spectral_weights[:, :, :, 0].max()
+    e0 = np.linspace(emin - 5 * sigma, emax + 5 * sigma, nedos)
+
+    for ispin in range(ns):
+        for ii in range(nk):
+            E_Km = spectral_weights[ispin, ii, :, 0]
+            P_Km = spectral_weights[ispin, ii, :, 1]
+
+            spectral_function[ispin, :, ii] = np.sum(
+                LorentzSmearing(
+                    e0[:, np.newaxis], E_Km[np.newaxis, :],
+                    sigma=sigma
+                ) * P_Km[np.newaxis, :], axis=1
+            )
+    return e0, spectral_function
+
 ############################################################
 
 

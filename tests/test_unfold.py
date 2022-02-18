@@ -32,6 +32,22 @@ def explicit_kpoints(kpath_and_labels):
     assert len(kpts) == 61
     return kpts
 
+@pytest.fixture
+def explicit_kpoints_minimal(kpath_and_labels):
+    """Test generating kpoints"""
+    klist, klabel = kpath_and_labels
+    kpts = unfold.make_kpath(klist, 2)
+    assert len(kpts) == 7
+    return kpts
+
+
+@pytest.fixture
+def silicon_unfold(explicit_kpoints_minimal, si_atoms, si222_atoms):
+    """
+    Return an object for unfolding silicon
+    """
+    return unfold.UnfoldKSet.from_atoms(np.diag([2,2,2]), explicit_kpoints_minimal, si_atoms, si222_atoms)
+
 
 def test_unfold_expansion(si_atoms, si222_atoms, explicit_kpoints):
     """Test genearting extended kpoints set"""
@@ -66,3 +82,20 @@ def test_symmetry_expand(si_atoms, si222_atoms):
     kpts, weights = unfold.expand_K_by_symmetry([0.1, 0.1, 0.1], rots_pc, rots_sc, time_reversal=False)
     assert len(kpts) == 4
     assert len(weights) == 4
+
+
+def test_serialization(silicon_unfold, tmp_path):
+    """
+    Test serializing and loading from the archive file
+    """
+    from monty.serialization import loadfn
+    assert silicon_unfold.as_dict()
+    new_obj = silicon_unfold.from_dict(silicon_unfold.as_dict())
+
+    # Test writing out
+    (tmp_path / "out.json").write_text(silicon_unfold.to_json())
+
+    new_obj = loadfn(tmp_path / "out.json")
+    np.testing.assert_allclose(new_obj.M, silicon_unfold.M)
+    assert 'kpoints' in new_obj.expansion_results
+
