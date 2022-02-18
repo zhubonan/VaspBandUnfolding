@@ -3,7 +3,6 @@
 
 ############################################################
 import os
-import multiprocessing
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -21,10 +20,10 @@ def get_symmetry_dataset(atoms, symprec=1e-5):
                                 atoms.get_atomic_numbers()),
                                 symprec=symprec)
 
-def find_K_from_k(k, M):
+def find_K_from_k(k: np.ndarray, M: np.ndarray):
     '''
     Get the K vector of the supercell onto which the k vector of the primitive
-    cell folds. The unfoliding vector G, which satisfy the following equation,
+    cell folds. The unfolding vector G, which satisfy the following equation,
     is also returned.
 
         k = K + G
@@ -41,25 +40,26 @@ def find_K_from_k(k, M):
     return KG, G
 
 
-def rotate_kpt(k, latt, rec, opt):
+def rotate_kpt(k: np.ndarray, opt: np.ndarray):
     """
     Apply rotation to a kpoint based on the rotations of the crystals (in the real space)
+
+    NOTE: The rotation matrix should be the one that act on fractional coordinates, e.g. from spglib.
     """
     rot =  k @ opt
     return rot - np.rint(rot)
 
 
-def expand_K_by_symmetry(k, rec_pc, opts_pc, opts_sc, time_reversal=True):
+def expand_K_by_symmetry(k, opts_pc, opts_sc, time_reversal=True):
     """
     Expend the sampling of the PC kpoints due to symmetry breaking of the SC
     """
     k = np.asarray(k)
-    latt_pc = np.linalg.inv(rec_pc)
 
     # Find distinct images of the kpoints in the PC
     pc_distinct = [k]
     for opt in opts_pc:
-        k_equiv = rotate_kpt(k, latt_pc, rec_pc, opt)
+        k_equiv = rotate_kpt(k, opt)
         k_equiv_neg = k_equiv * -1
         found = False
         for k_ in pc_distinct:
@@ -76,7 +76,7 @@ def expand_K_by_symmetry(k, rec_pc, opts_pc, opts_sc, time_reversal=True):
             continue
 
         for opt in opts_sc:
-            k_equiv = rotate_kpt(k, latt_pc, rec_pc, opt)
+            k_equiv = rotate_kpt(k, opt)
             k_equiv_neg = k_equiv * -1
             for j, k_ in enumerate(pc_distinct):
                 # Skip if it is the same point, or the other point has been taken
@@ -126,7 +126,7 @@ class UnfoldKSet(MSONable):
         expended_k = []
         expended_weights = []
         for kpt in self.kpts_pc:
-            kset, weights = expand_K_by_symmetry(kpt, np.linalg.inv(self.pc_latt), self.pc_opts, self.sc_opts, time_reversal=self.time_reversal)
+            kset, weights = expand_K_by_symmetry(kpt, self.pc_opts, self.sc_opts, time_reversal=self.time_reversal)
             expended_k.append(kset)
             expended_weights.append(weights)
         self.expansion_results = {'kpoints': expended_k, 'weights': expended_weights}
@@ -271,21 +271,9 @@ def GaussianSmearing(x, x0, sigma=0.02):
 
 
 def removeDuplicateKpoints(kpoints, return_map=False, decimals=6):
-    '''
+    """
     remove duplicate kpoints in the list.
-    '''
-
-
-    # sorted_kpoints = np.array(
-    #         sorted(kpoints, key=lambda x: (x[0], x[1], x[2]))
-    #         )
-    # kdiff = np.diff(sorted_kpoints, axis=0)
-    # match = np.abs(np.linalg.norm(kdiff, axis=1)) > 1E-5
-    #
-    # reducedK = sorted_kpoints[np.r_[True, match]]
-
-    # The simplest way to get the unique k-points is to use np.unique function,
-    #
+    """
     kpoints = np.asarray(kpoints)
     uk, kid, inv_kid = np.unique(
         np.round(kpoints, decimals),
@@ -302,9 +290,9 @@ def removeDuplicateKpoints(kpoints, return_map=False, decimals=6):
 
 
 def write_kpoints(kpoints: np.ndarray, outpath='KPOINTS', comment=''):
-    '''
+    """
     save to VASP KPOINTS file
-    '''
+    """
     kpoints = np.asarray(kpoints)
     nkpts = kpoints.shape[0]
 
@@ -319,17 +307,11 @@ def write_kpoints(kpoints: np.ndarray, outpath='KPOINTS', comment=''):
 
 
 def make_kpath(kbound, nseg=40):
-    '''
-    make a list of kpoints defining the path between the given kpoints. 
-    '''
+    """
+    Return a list of kpoints defining the path between the given kpoints. 
+    """
     kbound = np.array(kbound, dtype=float)
     kdist = np.diff(kbound, axis=0)
-
-    # kpath = []
-    # for ii in range(len(kdist)):
-    #     for nk in range(nseg):
-    #         kpt = kbound[ii] + kdist[ii] / nseg * nk
-    #         kpath.append(kpt)
 
     kpath = [kbound[ii] + kdist[ii] / nseg * nk
              for ii in range(len(kdist))

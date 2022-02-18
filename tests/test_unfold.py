@@ -52,17 +52,17 @@ def test_symmetry_expand(si_atoms, si222_atoms):
     """Test the expansion of symmetrically related points"""
     rots_pc = unfold.get_symmetry_dataset(si_atoms)['rotations']
     rots_sc = unfold.get_symmetry_dataset(si222_atoms)['rotations']
-    kpts, weights = unfold.expand_K_by_symmetry([0.1, 0.1, 0.1], np.linalg.inv(si_atoms.cell), rots_pc, rots_sc, time_reversal=True)
+    kpts, weights = unfold.expand_K_by_symmetry([0.1, 0.1, 0.1], rots_pc, rots_sc, time_reversal=True)
     assert len(kpts) == 1
     assert len(weights) == 1
 
     si222_atoms[0].position += np.array([0.1, 0.1, 0.1])
     rots_pc = unfold.get_symmetry_dataset(si_atoms)['rotations']
     rots_sc = unfold.get_symmetry_dataset(si222_atoms)['rotations']
-    kpts, weights = unfold.expand_K_by_symmetry([0.1, 0.1, 0.1], np.linalg.inv(si_atoms.cell), rots_pc, rots_sc, time_reversal=True)
+    kpts, weights = unfold.expand_K_by_symmetry([0.1, 0.1, 0.1], rots_pc, rots_sc, time_reversal=True)
     assert len(kpts) == 2
     assert len(weights) == 2
 
-    kpts, weights = unfold.expand_K_by_symmetry([0.1, 0.1, 0.1], np.linalg.inv(si_atoms.cell), rots_pc, rots_sc, time_reversal=False)
+    kpts, weights = unfold.expand_K_by_symmetry([0.1, 0.1, 0.1], rots_pc, rots_sc, time_reversal=False)
     assert len(kpts) == 4
     assert len(weights) == 4
