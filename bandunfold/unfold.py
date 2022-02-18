@@ -583,16 +583,15 @@ def EBS_cmaps(kpts,
                 tick_labels.append(label)
             ticks = []
             tick_labels = []
-            for xloc, label in zip(kdist, explicit_labels):
-                if label:
-                    ticks.append(xloc)
-                    tick_labels.append(clean_latex_string(label))
+            for index, label in explicit_labels:
+                ticks.append(kdist[index])
+                tick_labels.append(clean_latex_string(label))
             ax.set_xticks(tick_locs)
             ax.set_xticklabels(tick_labels)
 
     fig.tight_layout(pad=0.2)
     if save:
-        fig.savefig(save, dpi=360)
+        fig.savefig(save, dpi=300)
     if show:
         fig.show()
     return fig
@@ -602,7 +601,7 @@ def clean_latex_string(label):
     if label == 'G':
         label = r'$\mathrm{\mathsf{\Gamma}}$'
     elif label.startswith('\\'):  ## This is a latex formatted label already
-        label = f'$\\mathrm{{\\mathsf{{\\{label}}}}}$'
+        label = f'$\\mathrm{{\\mathsf{{{label}}}}}$'
     else:
         label = r'$\mathrm{\mathsf{%s}}$' % label
     return label

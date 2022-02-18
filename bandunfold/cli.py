@@ -33,17 +33,29 @@ def generate(pc_file, sc_file, matrix, kpoints, time_reversal, out_file):
 
     primitive = read(pc_file)
     supercell = read(sc_file)
-    m = [float(x) for x in matrix.split()]
-    if len(m) == 3:
-        M = np.diag(m)
+    if matrix:
+        elems = [float(x) for x in matrix.split()]
+        # Try gussing the transform matrix
+        if len(elems) == 3:
+            transform_matrix = np.diag(elems)
+        else:
+            transform_matrix = np.array(elems).reshape((3, 3))
+        if not np.allclose(primitive.cell @ transform_matrix, supercell.cell):
+            click.echo('Warning: the super cell and the the primitive cell are not commensure.')
+            click.echo('Proceed with the assumed tranform matrix')
+        click.echo(f'Transform matrix:\n{transform_matrix.tolist()}')
     else:
-        M = np.array(m).reshape((3, 3))
-    click.echo(f'Transfer matrix:\n{M.tolist()}')
+        tmp = supercell.cell @ np.linalg.inv(primitive.cell)
+        transform_matrix = np.rint(tmp)
+        if not np.allclose(tmp, transform_matrix):
+            raise click.Abort('The super cell and the the primitive cell are not commensure.')
+
+        click.echo(f'(Guessed) Transform matrix:\n{transform_matrix.tolist()}')
 
     kpoints, comment, labels = read_kpoints(kpoints)
     click.echo(f'{len(kpoints)} kpoints specified along the path')
 
-    unfold = UnfoldKSet.from_atoms(M, kpoints, primitive, supercell, time_reversal=time_reversal)
+    unfold = UnfoldKSet.from_atoms(transform_matrix, kpoints, primitive, supercell, time_reversal=time_reversal)
     unfold.kpoint_labels = labels
 
     # Print space group information
@@ -70,21 +82,42 @@ def generate(pc_file, sc_file, matrix, kpoints, time_reversal, out_file):
 
 
 @easyunfold.group('unfold')
-@click.argument('file')
+@click.option('--data-file', default='easyunfold.json', type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.pass_context
-def unfold(ctx, file):
+def unfold(ctx, data_file):
     """Perform unfolding and plotting"""
 
-    unfold = loadfn(file)
-    ctx.obj = {'obj': unfold, 'fname': file}
+    unfold = loadfn(data_file)
+    click.echo(f'Loaded data from {data_file}')
+    ctx.obj = {'obj': unfold, 'fname': data_file}
 
 
-@unfold.command('unfold')
+@unfold.command('status')
+@click.pass_context
+def unfold_status(ctx):
+    """Print the status"""
+    unfold: UnfoldKSet = ctx.obj['obj']
+    click.echo(f'\nNo. of k points in the primitive cell         : {unfold.nkpts_orig}')
+    click.echo(f'No. of expanded kpoints to be calculated cell   : {unfold.nkpts_expand}')
+    click.echo(f'No. of rotations in the primitive cell          : {unfold.pc_opts.shape[0]}')
+    click.echo(f'No. of rotations in the super cell              : {unfold.sc_opts.shape[0]}')
+    click.echo()
+    click.echo(f'Path in the primitive cell:')
+    for index, label in unfold.kpoint_labels:
+        click.echo(f'   {label:<10}: {index+1:<5}')
+
+    if unfold.is_calculated:
+        click.echo('Unfolding had been performed - use `unfold plot` to plot the spectral function.')
+    else:
+        click.echo('Please run the supercell band structure calculation and run `unfold calculate`.')
+
+
+@unfold.command('calculate')
 @click.pass_context
 @click.argument('wavecar')
 @click.option('--save-as')
 @click.option('--gamma', is_flag=True)
-def unfold_unfold(ctx, wavecar, save_as, gamma):
+def unfold_calculate(ctx, wavecar, save_as, gamma):
     """Perform the unfolding"""
 
     unfold: UnfoldKSet = ctx.obj['obj']
@@ -100,12 +133,19 @@ def unfold_unfold(ctx, wavecar, save_as, gamma):
 @click.option('--npoints', type=int, default=2000)
 @click.option('--sigma', type=float, default=0.1)
 @click.option('--eref', type=float)
-@click.option('--vasprun')
+@click.option('--emin', type=float)
+@click.option('--emax', type=float)
+@click.option('--vasprun', help='A vasprun.xml to provide the reference VBM energy.')
 @click.option('--out-file', default='unfold.pdf')
+@click.option('--cmap', default='PuRd')
 @click.option('--show', is_flag=True)
-def unfold_plot(ctx, gamma, npoints, sigma, eref, vasprun, out_file, show):
+def unfold_plot(ctx, gamma, npoints, sigma, eref, vasprun, out_file, show, emin, emax, cmap):
 
     unfold: UnfoldKSet = ctx.obj['obj']
+    if not unfold.is_calculated:
+        click.echo('Unfolding has not been performed yet, please run `unfold calculate` command.')
+        raise click.Abort()
+
     e0, spectral_function = unfold.get_spectral_function(gamma=gamma, npoints=npoints, sigma=sigma)
 
     if eref is None:
@@ -115,15 +155,26 @@ def unfold_plot(ctx, gamma, npoints, sigma, eref, vasprun, out_file, show):
             eref = vrun.eigenvalue_band_properties[2]
         else:
             eref = 0.0
+    if emin is None:
+        emin = e0.min() - eref
+    if emax is None:
+        emax = e0.max() - eref
 
-    fig = EBS_cmaps(
+    _ = EBS_cmaps(
         unfold.kpts_pc,
         unfold.pc_latt,
         e0,
         spectral_function,
         eref=eref,
         save=out_file,
-        show=show,
+        show=False,
+        explicit_labels=unfold.kpoint_labels,
+        ylim=(emin, emax),
+        cmap=cmap,
     )
     if out_file:
-        click.echo('Unfolded band structure saved to {out_file}')
+        click.echo(f'Unfolded band structure saved to {out_file}')
+
+    if show:
+        import matplotlib.pyplot as plt
+        plt.show()
