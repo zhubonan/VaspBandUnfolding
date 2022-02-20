@@ -372,10 +372,10 @@ known-third-party=enchant
 [DESIGN]
 
 # Maximum number of arguments for function / method
-max-args=10
+max-args=15
 
 # Maximum number of attributes for a class (see R0902).
-max-attributes=10
+max-attributes=15
 
 # Maximum number of boolean expressions in a if statement
 max-bool-expr=5
@@ -396,7 +396,7 @@ max-public-methods=25
 max-returns=6
 
 # Maximum number of statements in function / method body
-max-statements=50
+max-statements=100
 
 # Minimum number of public methods for a class (see R0903).
 min-public-methods=1

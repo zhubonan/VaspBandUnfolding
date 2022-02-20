@@ -1,10 +1,10 @@
 """
 Test unfolding routines
 """
+import shutil
+import urllib.request
 import numpy as np
-import spglib
 from ase.io import read
-from ase.build import make_supercell
 import pytest
 import bandunfold.unfold as unfold
 
@@ -17,6 +17,22 @@ def si_atoms(datapath):
 @pytest.fixture
 def si222_atoms(si_atoms):
     return si_atoms.repeat((2, 2, 2))
+
+
+@pytest.fixture()
+def si_project_dir(datapath, tmp_path):
+    """Create a temporary directory containing the Si unfold project data"""
+    shutil.copytree(datapath('Si-project'), tmp_path / 'Si-project')
+    if not list(tmp_path.glob('Si-project/*/WAVECAR')):
+        # Download the dataset
+        data_depo = [
+            ('https://www.dropbox.com/s/0d6cc8rsee2j7to/WAVCAR?dl=1', 'Si_super_deformed/WAVECAR'),
+            ('https://www.dropbox.com/s/22u33579kf3zq4x/WAVECAR?dl=1', 'Si_super_deformed_spin/WAVECAR'),
+        ]
+        for url, relpath in data_depo:
+            print(f'Downloading {relpath}')
+            urllib.request.urlretrieve(url, tmp_path / 'Si-project' / relpath)
+    return tmp_path / 'Si-project'
 
 
 @pytest.fixture
@@ -101,3 +117,39 @@ def test_serialization(silicon_unfold, tmp_path):
     new_obj = loadfn(tmp_path / 'out.json')
     np.testing.assert_allclose(new_obj.M, silicon_unfold.M)
     assert 'kpoints' in new_obj.expansion_results
+
+
+@pytest.mark.parametrize('folder_name,nspin', [('Si_super_deformed', 1), ('Si_super_deformed_spin', 2)])
+def test_unfold(si_project_dir, folder_name, nspin):
+    """
+    Test unfolding on the real data
+    """
+
+    atoms_primitive = read(si_project_dir / 'Si/POSCAR')
+    atoms_supercell = read(si_project_dir / f'{folder_name}/POSCAR')
+    kpoints, _, labels = unfold.read_kpoints(si_project_dir / 'KPOINTS_band_low')
+
+    unfolder: unfold.UnfoldKSet = unfold.UnfoldKSet.from_atoms(np.diag([2, 2, 2]), kpoints, atoms_primitive, atoms_supercell)
+    unfolder.kpoint_labels = labels
+    unfolder.write_sc_kpoints(si_project_dir / 'KPOINTS_sc')
+
+    # Test kpoints generation
+    kpoints_sc, _, _ = unfold.read_kpoints(si_project_dir / 'KPOINTS_sc')
+    kpoints_sc_ref, _, _ = unfold.read_kpoints(si_project_dir / f'{folder_name}/KPOINTS_easyunfold')
+    np.testing.assert_allclose(kpoints_sc, kpoints_sc_ref)
+
+    # Test unfold
+    sws = unfolder.get_spectral_weights(si_project_dir / f'{folder_name}/WAVECAR')
+    assert sws.shape[0] == nspin
+    assert sws.shape[1] == len(kpoints)
+    assert sws.shape[2] == 81
+    assert sws.shape[3] == 2
+
+    assert unfolder.is_calculated
+
+    # Spectral weights
+    e0, spectral_function = unfolder.get_spectral_function(npoints=500)
+    assert len(e0) == 500
+    assert spectral_function.shape == (nspin, 500, len(kpoints))
+
+    assert unfolder.to_json()

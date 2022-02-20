@@ -416,11 +416,11 @@ def EBS_scatter(kpts,
                 cell,
                 spectral_weight,
                 atomic_weights=None,
-                atomic_colors=[],
+                atomic_colors=None,
                 eref=0.0,
                 nseg=None,
                 save='ebs_s.png',
-                kpath_label=[],
+                kpath_label=None,
                 factor=20,
                 figsize=(3.0, 4.0),
                 ylim=(-3, 3),
@@ -437,7 +437,9 @@ def EBS_scatter(kpts,
         spectral_weight: self-explanatory
     """
 
-    mpl.rcParams['axes.unicode_minus'] = False
+    #mpl.rcParams['axes.unicode_minus'] = False
+    atomic_colors = [] if atomic_colors is None else atomic_colors
+    kpath_label = [] if kpath_label is None else kpath_label
 
     nspin = spectral_weight.shape[0]
     kpt_c = np.dot(kpts, np.linalg.inv(cell).T)
@@ -517,22 +519,29 @@ def EBS_cmaps(kpts,
     plot the effective band structure with colormaps.  The plotting function
     utilizes Matplotlib package.
 
-    inputs:
+    Args:
         kpts: the kpoints vectors in fractional coordinates.
         cell: the primitive cell basis
-        spectral_weight: self-explanatory
+        e0: The energies corresponds to each element of the spectral function
+        spectral_function: The spectral function array in the shape of (nspin, nk, neng)
+        eref: Refernce point for zero energy
+        kpath_label: Label of the high symmetry kpoints along the pathway
+        nseg: Number of points in each segment of the kpoint pathway
+        explicit_labels: A list of tuplies containing tuples of `(index, label)` to explicitly set kpoint labels.
+        save: Name of the file the plot to be saved to.
+        figsize: SIze of hte figure
+        ylim: Limit for the y axis. The limit is applied *after* substracting the refence energy.
+        show: To show the plot interactively or not.
+        contour_plot: Plot in the contour mode
+        ax: Existing axis(axes) to plot onto
+        cmap: Colour mapping for the density/contour plot
     """
 
-    #    mpl.use('agg')
-
-    #    mpl.rcParams['axes.unicode_minus'] = False
     kpath_label = [] if not kpath_label else kpath_label
     nspin = spectral_function.shape[0]
     kpt_c = np.dot(kpts, np.linalg.inv(cell).T)
     kdist = np.r_[0., np.cumsum(np.linalg.norm(np.diff(kpt_c, axis=0), axis=1))]
     xmin, xmax = kdist.min(), kdist.max()
-
-    # ymin, ymax = E0.min() - eref, E0.max() - eref
 
     if ax is None:
         fig = plt.figure()
@@ -549,8 +558,6 @@ def EBS_cmaps(kpts,
             axes = ax
         fig = axes[0].figure
 
-    # ax.imshow(spectral_function, extent=(xmin, xmax, ymin, ymax),
-    #           origin='lower', aspect='auto', cmap=cmap)
     X, Y = np.meshgrid(kdist, E0 - eref)
     for ispin in range(nspin):
         ax = axes[ispin]
@@ -561,7 +568,7 @@ def EBS_cmaps(kpts,
 
         ax.set_xlim(xmin, xmax)
         ax.set_ylim(*ylim)
-        ax.set_ylabel('Energy [eV]', labelpad=5)
+        ax.set_ylabel('Energy (eV)', labelpad=5)
 
         if nseg:
             for kb in kdist[::nseg]:
@@ -598,6 +605,7 @@ def EBS_cmaps(kpts,
 
 
 def clean_latex_string(label):
+    """Clean up latex labels and convert if necessary"""
     if label == 'G':
         label = r'$\mathrm{\mathsf{\Gamma}}$'
     elif label.startswith('\\'):  ## This is a latex formatted label already
