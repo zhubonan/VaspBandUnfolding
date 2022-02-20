@@ -382,6 +382,8 @@ def read_kpoints(path='KPOINTS'):
     content = Path(path).read_text().split('\n')
     comment = content[0]
     nkpts = int(content[1])
+    if content[2].lower().startswith('lin'):
+        return read_kpoints_line(content)
     assert content[2].lower().startswith('rec'), 'Only Reciprocal space KPOINT file is supported'
     kpts = []
     labels = []
@@ -398,6 +400,44 @@ def read_kpoints(path='KPOINTS'):
         if ik == nkpts:
             break
     return kpts, comment, labels
+
+
+def read_kpoints_line(content, density=20):
+    """
+    Read kpoints in the line mode
+
+    Resolve to explicit kpoints
+    """
+    comment = content[0]
+    density = int(content[1]) if content[1] else density
+
+    assert content[2].lower().startswith('lin'), 'Only Line mode KPOINT file is supported'
+    assert content[3].lower().startswith('rec'), 'Only Reciprocal coorindates are supported!'
+
+    segs = []
+    labels = []
+    for line in content[4:]:
+        tokens = line.split()
+        if not tokens:
+            continue
+        point = [float(x) for x in tokens[:3]]
+        labels.append(tokens[-1])
+        segs.append(point)
+    # Process the segments
+    kpoints = []
+    labels_loc = []
+    for i in range(int(len(segs) / 2)):
+        k1 = segs[i * 2]
+        k2 = segs[i * 2 + 1]
+        # Check for duplicate end point
+        if kpoints and kpoints[-1] == k1:
+            kpoints.pop()
+            labels_loc.pop()
+        this_seg = np.linspace(k1, k2, density)
+        labels_loc.append((len(kpoints), labels[i]))
+        kpoints.extend(this_seg.tolist())
+        labels_loc.append((len(kpoints) - 1, labels[i + 1]))
+    return kpoints, comment, labels_loc
 
 
 def make_kpath(kbound, nseg=40):

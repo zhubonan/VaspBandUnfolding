@@ -68,6 +68,16 @@ def silicon_unfold(explicit_kpoints_minimal, si_atoms, si222_atoms):
     return unfold.UnfoldKSet.from_atoms(np.diag([2, 2, 2]), explicit_kpoints_minimal, si_atoms, si222_atoms)
 
 
+def test_read_kpoints_line(datapath):
+
+    kpoints, comment, labels = unfold.read_kpoints(datapath('KPOINTS_LINE'))
+    assert len(kpoints) == 91
+    assert len(labels) == 4
+    assert labels[0][0] == 0
+    assert labels[-1][0] == 90
+    assert comment == 'Monkhorst-Pack'
+
+
 def test_unfold_expansion(si_atoms, si222_atoms, explicit_kpoints):
     """Test genearting extended kpoints set"""
     # Get symmetry operations

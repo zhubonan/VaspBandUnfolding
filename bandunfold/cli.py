@@ -48,7 +48,8 @@ def generate(pc_file, sc_file, matrix, kpoints, time_reversal, out_file):
         tmp = supercell.cell @ np.linalg.inv(primitive.cell)
         transform_matrix = np.rint(tmp)
         if not np.allclose(tmp, transform_matrix):
-            raise click.Abort('The super cell and the the primitive cell are not commensure.')
+            click.echo('The super cell and the the primitive cell are not commensure.')
+            raise click.Abort()
 
         click.echo(f'(Guessed) Transform matrix:\n{transform_matrix.tolist()}')
 
