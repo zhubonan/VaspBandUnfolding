@@ -3,6 +3,7 @@ Tests for the CLI system
 """
 import os
 import urllib
+from black import out
 import pytest
 from pathlib import Path
 import shutil
@@ -70,4 +71,6 @@ def test_generate(si_project_dir):
 
     # Do the plotting
     output = runner.invoke(easyunfold, ['unfold', '--data-file', 'test.json', 'plot'])
+    assert output.return_value is None
+    print(output.stdout)
     assert Path('unfold.png').is_file()

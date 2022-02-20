@@ -146,7 +146,7 @@ def unfold_calculate(ctx, wavecar, save_as, gamma, vasprun):
 @click.option('--vasprun', help='A vasprun.xml to provide the reference energy base on the VBM.')
 @click.option('--out-file', default='unfold.png')
 @click.option('--cmap', default='PuRd')
-@click.option('--show', is_flag=True)
+@click.option('--show', is_flag=True, default=False)
 def unfold_plot(ctx, gamma, npoints, sigma, eref, vasprun, out_file, show, emin, emax, cmap):
     """
     Plot the spectral function
