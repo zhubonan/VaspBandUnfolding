@@ -161,8 +161,12 @@ def unfold_plot(ctx, gamma, npoints, sigma, eref, vasprun, out_file, show, emin,
     eng, spectral_function = unfoldset.get_spectral_function(gamma=gamma, npoints=npoints, sigma=sigma)
 
     if eref is None:
-        from pymatgen.io.vasp.outputs import Vasprun
         if vasprun:
+            try:
+                from pymatgen.io.vasp.outputs import Vasprun
+            except ImportError:
+                click.echo('Pymatgen is required for reading vasprun.xml')
+                raise click.Abort()
             vrun = Vasprun(vasprun)
             eref = vrun.eigenvalue_band_properties[2]
         else:
