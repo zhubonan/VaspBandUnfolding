@@ -2,6 +2,7 @@
 Tests for the CLI system
 """
 import os
+import urllib
 import pytest
 from pathlib import Path
 import shutil
