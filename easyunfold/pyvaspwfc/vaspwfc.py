@@ -155,13 +155,13 @@ class vaspwfc(object):
         # goto the start of the file and read the first record
         self._wfc.seek(0)
         self._recl, self._nspin, self._rtag = np.array(
-            np.fromfile(self._wfc, dtype=np.float, count=3),
+            np.fromfile(self._wfc, dtype=np.float64, count=3),
             dtype=np.int64
         )
         self._WFPrec = self.setWFPrec()
         # the second record
         self._wfc.seek(self._recl)
-        dump = np.fromfile(self._wfc, dtype=np.float, count=12)
+        dump = np.fromfile(self._wfc, dtype=np.float64, count=12)
 
         self._nkpts = int(dump[0])                     # No. of k-points
         self._nbands = int(dump[1])                     # No. of bands
@@ -214,7 +214,7 @@ class vaspwfc(object):
             for jj in range(self._nkpts):
                 rec = self.whereRec(ii+1, jj+1, 1) - 1
                 self._wfc.seek(rec * self._recl)
-                dump = np.fromfile(self._wfc, dtype=np.float,
+                dump = np.fromfile(self._wfc, dtype=np.float64,
                                    count=4+3*self._nbands)
                 if ii == 0:
                     self._nplws[jj] = int(dump[0])
@@ -487,7 +487,7 @@ class vaspwfc(object):
               gvec=None, Cg=None, ngrid=None,
               rescale=None,
               norm=True, kr_phase=False, r0=[0.0, 0.0, 0.0]):
-        '''
+        r'''
         Obtain the pseudo-wavefunction of the specified KS states in real space
         by performing FT transform on the reciprocal space planewave
         coefficients.  The 3D FT grid size is determined by ngrid, which
@@ -838,7 +838,7 @@ class vaspwfc(object):
         return E1, E2, dE, ovlap, tdm
 
     def inverse_participation_ratio(self, norm=True):
-        '''
+        r'''
         Calculate Inverse Paticipation Ratio (IPR) from the wavefunction. IPR is
         a measure of the localization of Kohn-Sham states. For a particular KS
         state \phi_j, it is defined as
@@ -872,7 +872,7 @@ class vaspwfc(object):
         return self.ipr
 
     def elf(self, kptw, ngrid=None, warn=True):
-        '''
+        r'''
         Calculate the electron localization function (ELF) from WAVECAR.
 
         The following formula was extracted from VASP ELF.F:
