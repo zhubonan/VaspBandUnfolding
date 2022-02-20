@@ -8,6 +8,8 @@ import click
 from ase.io import read
 from bandunfold.unfold import UnfoldKSet, read_kpoints, get_symmetry_dataset, EBS_cmaps
 
+# pylint:disable=import-outside-toplevel
+
 
 @click.group('easyunfold')
 def easyunfold():
@@ -50,11 +52,11 @@ def generate(pc_file, sc_file, matrix, kpoints, time_reversal, out_file):
 
         click.echo(f'(Guessed) Transform matrix:\n{transform_matrix.tolist()}')
 
-    kpoints, comment, labels = read_kpoints(kpoints)
+    kpoints, _, labels = read_kpoints(kpoints)
     click.echo(f'{len(kpoints)} kpoints specified along the path')
 
-    unfold = UnfoldKSet.from_atoms(transform_matrix, kpoints, primitive, supercell, time_reversal=time_reversal)
-    unfold.kpoint_labels = labels
+    unfoldset = UnfoldKSet.from_atoms(transform_matrix, kpoints, primitive, supercell, time_reversal=time_reversal)
+    unfoldset.kpoint_labels = labels
 
     # Print space group information
     sc_spg = get_symmetry_dataset(primitive)
@@ -70,11 +72,11 @@ def generate(pc_file, sc_file, matrix, kpoints, time_reversal, out_file):
     click.echo(' ' * 8 + f'Point group: {pc_spg["pointgroup"]}')
 
     out_file = Path(out_file)
-    unfold.write_sc_kpoints('KPOINTS_' + out_file.stem)
+    unfoldset.write_sc_kpoints('KPOINTS_' + out_file.stem)
     click.echo('Supercell kpoints written to KPOITNS_' + out_file.stem)
 
     # Serialize the data
-    Path(out_file).write_text(unfold.to_json())
+    Path(out_file).write_text(unfoldset.to_json())
 
     click.echo('Unfolding settings written to ' + str(out_file))
 
@@ -85,26 +87,26 @@ def generate(pc_file, sc_file, matrix, kpoints, time_reversal, out_file):
 def unfold(ctx, data_file):
     """Perform unfolding and plotting"""
 
-    unfold = loadfn(data_file)
+    unfoldset = loadfn(data_file)
     click.echo(f'Loaded data from {data_file}')
-    ctx.obj = {'obj': unfold, 'fname': data_file}
+    ctx.obj = {'obj': unfoldset, 'fname': data_file}
 
 
 @unfold.command('status')
 @click.pass_context
 def unfold_status(ctx):
     """Print the status"""
-    unfold: UnfoldKSet = ctx.obj['obj']
-    click.echo(f'\nNo. of k points in the primitive cell         : {unfold.nkpts_orig}')
-    click.echo(f'No. of expanded kpoints to be calculated cell   : {unfold.nkpts_expand}')
-    click.echo(f'No. of rotations in the primitive cell          : {unfold.pc_opts.shape[0]}')
-    click.echo(f'No. of rotations in the super cell              : {unfold.sc_opts.shape[0]}')
+    unfoldset: UnfoldKSet = ctx.obj['obj']
+    click.echo(f'\nNo. of k points in the primitive cell         : {unfoldset.nkpts_orig}')
+    click.echo(f'No. of expanded kpoints to be calculated cell   : {unfoldset.nkpts_expand}')
+    click.echo(f'No. of rotations in the primitive cell          : {unfoldset.pc_opts.shape[0]}')
+    click.echo(f'No. of rotations in the super cell              : {unfoldset.sc_opts.shape[0]}')
     click.echo()
-    click.echo(f'Path in the primitive cell:')
-    for index, label in unfold.kpoint_labels:
+    click.echo('Path in the primitive cell:')
+    for index, label in unfoldset.kpoint_labels:
         click.echo(f'   {label:<10}: {index+1:<5}')
 
-    if unfold.is_calculated:
+    if unfoldset.is_calculated:
         click.echo('Unfolding had been performed - use `unfold plot` to plot the spectral function.')
     else:
         click.echo('Please run the supercell band structure calculation and run `unfold calculate`.')
@@ -114,14 +116,21 @@ def unfold_status(ctx):
 @click.pass_context
 @click.argument('wavecar')
 @click.option('--save-as')
+@click.option('--vasprun', help='A vasprun.xml to provide the reference VBM energy.')
 @click.option('--gamma', is_flag=True)
-def unfold_calculate(ctx, wavecar, save_as, gamma):
+def unfold_calculate(ctx, wavecar, save_as, gamma, vasprun):
     """Perform the unfolding"""
 
-    unfold: UnfoldKSet = ctx.obj['obj']
-    unfold.get_spectral_weights(wavecar, gamma)
+    unfoldset: UnfoldKSet = ctx.obj['obj']
+    unfoldset.get_spectral_weights(wavecar, gamma)
+
+    if vasprun:
+        from pymatgen.io.vasp.outputs import Vasprun
+        vrun = Vasprun(vasprun)
+        eref = vrun.eigenvalue_band_properties[2]
+        unfoldset.calculated_quantities['vbm'] = eref
     out_path = save_as if save_as else ctx.obj['fname']
-    Path(out_path).write_text(unfold.to_json())
+    Path(out_path).write_text(unfoldset.to_json())
     click.echo('Unfolding data written to ' + out_path)
 
 
@@ -133,18 +142,22 @@ def unfold_calculate(ctx, wavecar, save_as, gamma):
 @click.option('--eref', type=float)
 @click.option('--emin', type=float)
 @click.option('--emax', type=float)
-@click.option('--vasprun', help='A vasprun.xml to provide the reference VBM energy.')
-@click.option('--out-file', default='unfold.pdf')
+@click.option('--vasprun', help='A vasprun.xml to provide the reference energy base on the VBM.')
+@click.option('--out-file', default='unfold.png')
 @click.option('--cmap', default='PuRd')
 @click.option('--show', is_flag=True)
 def unfold_plot(ctx, gamma, npoints, sigma, eref, vasprun, out_file, show, emin, emax, cmap):
+    """
+    Plot the spectral function
 
-    unfold: UnfoldKSet = ctx.obj['obj']
-    if not unfold.is_calculated:
+    This command uses the stored unfolding data to plot the effective bands structure (EBS).
+    """
+    unfoldset: UnfoldKSet = ctx.obj['obj']
+    if not unfoldset.is_calculated:
         click.echo('Unfolding has not been performed yet, please run `unfold calculate` command.')
         raise click.Abort()
 
-    e0, spectral_function = unfold.get_spectral_function(gamma=gamma, npoints=npoints, sigma=sigma)
+    eng, spectral_function = unfoldset.get_spectral_function(gamma=gamma, npoints=npoints, sigma=sigma)
 
     if eref is None:
         from pymatgen.io.vasp.outputs import Vasprun
@@ -152,21 +165,23 @@ def unfold_plot(ctx, gamma, npoints, sigma, eref, vasprun, out_file, show, emin,
             vrun = Vasprun(vasprun)
             eref = vrun.eigenvalue_band_properties[2]
         else:
-            eref = 0.0
+            eref = unfoldset.calculated_quantities.get('vbm', 0.0)
+    click.echo(f'Using a reference energy of {eref:.3f} eV')
+
     if emin is None:
-        emin = e0.min() - eref
+        emin = eng.min() - eref
     if emax is None:
-        emax = e0.max() - eref
+        emax = eng.max() - eref
 
     _ = EBS_cmaps(
-        unfold.kpts_pc,
-        unfold.pc_latt,
-        e0,
+        unfoldset.kpts_pc,
+        unfoldset.pc_latt,
+        eng,
         spectral_function,
         eref=eref,
         save=out_file,
         show=False,
-        explicit_labels=unfold.kpoint_labels,
+        explicit_labels=unfoldset.kpoint_labels,
         ylim=(emin, emax),
         cmap=cmap,
     )
