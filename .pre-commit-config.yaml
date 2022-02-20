@@ -4,19 +4,19 @@ repos:
   rev: v2.5.0
   hooks:
   - id: trailing-whitespace
-    exclude: (bandunfold/pyvaspwfc|example)
+    exclude: (easyunfold/pyvaspwfc|example)
   - id: end-of-file-fixer
-    exclude: (bandunfold/pyvaspwfc|example)
+    exclude: (easyunfold/pyvaspwfc|example)
   - id: check-yaml
-    exclude: (bandunfold/pyvaspwfc|example)
+    exclude: (easyunfold/pyvaspwfc|example)
   - id: check-json
-    exclude: (bandunfold/pyvaspwfc|example)
+    exclude: (easyunfold/pyvaspwfc|example)
   - id: check-added-large-files
-    exclude: (bandunfold/pyvaspwfc|example)
+    exclude: (easyunfold/pyvaspwfc|example)
   - id: double-quote-string-fixer
-    exclude: (bandunfold/pyvaspwfc|example)
+    exclude: (easyunfold/pyvaspwfc|example)
   - id: forbid-new-submodules
-    exclude: (bandunfold/pyvaspwfc|example)
+    exclude: (easyunfold/pyvaspwfc|example)
 
 - repo: https://github.com/pre-commit/mirrors-yapf
   rev: v0.30.0
@@ -25,7 +25,7 @@ repos:
     name: yapf
     types: [python]
     args: ['-i']
-    exclude: (bandunfold/pyvaspwfc|example)
+    exclude: (easyunfold/pyvaspwfc|example)
 
 
 - repo: local
@@ -39,6 +39,6 @@ repos:
       (?x)(
       ^tutorials/|
       ^examples/|
-      ^bandunfold/pyvaspwfc|
+      ^easyunfold/pyvaspwfc|
       ^tests
       )

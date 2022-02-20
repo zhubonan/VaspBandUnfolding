@@ -6,7 +6,7 @@ import urllib.request
 import numpy as np
 from ase.io import read
 import pytest
-import bandunfold.unfold as unfold
+import easyunfold.unfold as unfold
 
 
 @pytest.fixture

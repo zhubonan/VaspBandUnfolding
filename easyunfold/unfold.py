@@ -14,7 +14,7 @@ import matplotlib as mpl
 import spglib
 from monty.json import MSONable
 
-from bandunfold import __version__
+from easyunfold import __version__
 from .pyvaspwfc.vaspwfc import vaspwfc
 
 ############################################################

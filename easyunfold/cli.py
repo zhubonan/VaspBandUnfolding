@@ -6,7 +6,7 @@ from monty.serialization import loadfn
 import numpy as np
 import click
 from ase.io import read
-from bandunfold.unfold import UnfoldKSet, read_kpoints, get_symmetry_dataset, EBS_cmaps
+from easyunfold.unfold import UnfoldKSet, read_kpoints, get_symmetry_dataset, EBS_cmaps
 
 # pylint:disable=import-outside-toplevel
 

@@ -3,7 +3,7 @@ requires = ["flit_core >=3.2,<4"]
 build-backend = "flit_core.buildapi"
 
 [project]
-name = "bandunfold"
+name = "easyunfold"
 authors = [{name = "Bonan Zhu", email = "bonan.zhu@ucl.ac.uk"}]
 readme = "README.md"
 license = {file = "LICENSE"}
@@ -13,4 +13,4 @@ dynamic = ["version", "description"]
 dependencies = ["scipy", "numpy", "matplotlib", "ase", "spglib", "click", "monty"]
 
 [project.scripts]
-easyunfold = "bandunfold.cli:easyunfold"
+easyunfold = "easyunfold.cli:easyunfold"

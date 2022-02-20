@@ -9,8 +9,8 @@ import shutil
 
 from monty.serialization import loadfn
 from click.testing import CliRunner
-from bandunfold.cli import easyunfold
-from bandunfold.unfold import read_kpoints
+from easyunfold.cli import easyunfold
+from easyunfold.unfold import read_kpoints
 
 
 @pytest.fixture

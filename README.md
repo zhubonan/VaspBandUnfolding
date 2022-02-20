@@ -1,6 +1,6 @@
 # Code for unfolding bands
 
-This package is intended for unfolding kpoints, it is based on [PyVaspwfc](https://github.com/QijingZheng/VaspBandUnfolding) and contains the code of the latter.
+This package is intended for unfolding kpoints, it is based on [PyVaspwfc](https://github.com/QijingZheng/Vaspeasyunfolding) and contains the code of the latter.
 
 NOTE: This package is under a MIT license, while the original PyVaspwfc code does not specific a license.
 
@@ -123,7 +123,7 @@ structure. For more information, please refer to the following article and the
 - Using Pip
 
     ```bash
-    pip install git+https://github.com/QijingZheng/VaspBandUnfolding
+    pip install git+https://github.com/QijingZheng/Vaspeasyunfolding
     ```
 
 # Examples
