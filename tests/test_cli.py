@@ -3,7 +3,6 @@ Tests for the CLI system
 """
 import os
 import urllib
-from black import out
 import pytest
 from pathlib import Path
 import shutil
