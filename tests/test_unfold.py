@@ -19,7 +19,7 @@ def si222_atoms(si_atoms):
     return si_atoms.repeat((2, 2, 2))
 
 
-@pytest.fixture()
+@pytest.fixture
 def si_project_dir(datapath, tmp_path):
     """Create a temporary directory containing the Si unfold project data"""
     shutil.copytree(datapath('Si-project'), tmp_path / 'Si-project')

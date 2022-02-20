@@ -114,7 +114,7 @@ def unfold_status(ctx):
 
 @unfold.command('calculate')
 @click.pass_context
-@click.argument('wavecar')
+@click.argument('wavecar', type=click.Path(exists=True, dir_okay=False))
 @click.option('--save-as')
 @click.option('--vasprun', help='A vasprun.xml to provide the reference VBM energy.')
 @click.option('--gamma', is_flag=True)
